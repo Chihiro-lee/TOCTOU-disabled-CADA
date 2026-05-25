@@ -108,12 +108,14 @@ extern const uint16_t send_value_address;
 extern const uint16_t read_mov;
 extern volatile uint32_t address_key;
 extern volatile uint32_t address_xor;
-extern volatile uint32_t address_sr;
-extern volatile uint16_t verify_count;
+extern volatile uint16_t random_index;
+//extern volatile uint32_t address_sr;
+//extern volatile uint16_t verify_count;
 
 extern volatile uint32_t DFI_MAX;
 extern const uint32_t DFI_MIN;
 
-extern const uint32_t key_set[1024];
+extern const uint32_t key_set0[1024];
+extern const uint32_t key_set1[1024];
 extern volatile uint16_t key_cnt;
 #endif

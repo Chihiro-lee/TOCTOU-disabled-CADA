@@ -78,16 +78,11 @@ safe_call_fun:
     CALLA #KeyGen
     MOVA &address_key, R5
     XORX R6, R5
+    MOVA &address_xor, R6
+    XORX R6, R5
     MOVA R5, &address_xor
-    MOVA &address_key, R5
-    XORX R4, R5
-    MOVA R5, &address_sr
-    MOV &verify_count, R5
-    INC R5
-    MOV R5, &verify_count
-    MOVA &tmp_r5, R5
     MOV R8, &write_count_lee
-    ;CALLA #XorResult
+    ;CALLA #XorResult1
     NOP
     NOP
     MOVA &tmp_r4, R4 
@@ -112,16 +107,11 @@ safe_calla_fun:
     CALLA #KeyGen
     MOVA &address_key, R5
     XORX R6, R5
+    MOVA &address_xor, R6
+    XORX R6, R5
     MOVA R5, &address_xor
-    MOVA &address_key, R5
-    XORX R4, R5
-    MOVA R5, &address_sr
-    MOV &verify_count, R5
-    INC R5
-    MOV R5, &verify_count
-    MOVA &tmp_r5, R5
     MOV R8, &write_count_lee
-    ;CALLA #XorResult
+    ;CALLA #XorResult1
     NOP
     NOP
     MOVA &tmp_r4, R4 
@@ -142,23 +132,20 @@ safe_ret_fun:
     ;JL  .stop               //Reset if invalid
     MOVA R4, &tmp_r4
     MOV @SP, R6             ; Move the SP to the R6 register (our dstReg)
+    MOVA R6, &tmp_r6
     MOVA R5, &tmp_r5
     CALLA #KeyGen
     MOVA &address_key, R5
     XORX R6, R5
+    MOVA &address_xor, R6
+    XORX R6, R5
     MOVA R5, &address_xor
-    MOVA &address_key, R5
-    XORX R4, R5
-    MOVA R5, &address_sr
-    MOV &verify_count, R5
-    INC R5
-    MOV R5, &verify_count
-    MOVA &tmp_r5, R5
     MOV R8, &write_count_lee
-    ;CALLA #XorResult
+    ;CALLA #XorResult1
     NOP
     NOP
     MOVA &tmp_r4, R4
+    MOVA &tmp_r6, R6
     MOV R4, SR
     RET                     ; It is safe! Return
 
@@ -204,23 +191,20 @@ safe_reta_fun:
     ;JL  .stop               //Reset if invalid
     MOVA R4, &tmp_r4
     MOVA @SP, R6
+    MOVA R6, &tmp_r6
     MOVA R5, &tmp_r5
     CALLA #KeyGen
     MOVA &address_key, R5
     XORX R6, R5
+    MOVA &address_xor, R6
+    XORX R6, R5
     MOVA R5, &address_xor
-    MOVA &address_key, R5
-    XORX R4, R5
-    MOVA R5, &address_sr
-    MOV &verify_count, R5
-    INC R5
-    MOV R5, &verify_count
-    MOVA &tmp_r5, R5
-    MOV R8, &write_count_lee;
-    ;CALLA #XorResult
+    MOV R8, &write_count_lee
+    ;CALLA #XorResult1
     NOP
     NOP
-    MOVA &tmp_r4, R4 
+    MOVA &tmp_r4, R4
+    MOVA &tmp_r6, R6 
     MOV R4, SR
     RETA
 
@@ -241,6 +225,7 @@ write_mov_fun:
     JEQ .stop               ; If so reset
     MOV R5, @R6             ; Perform MOV
     ;INC.W R8
+    NOP
     MOV R4, SR              ; Restore SR
     RET                     ; Return to code
 
@@ -259,6 +244,7 @@ write_movx_fun:
     JEQ .stop
     MOVX R5, @R6
     ;INC.W R8
+    NOP
     MOV R4, SR
     RET
 
@@ -277,6 +263,7 @@ write_xor_fun:
     JEQ .stop 
     XOR R5, @R6
     ;INC.W R8
+    NOP
     MOV R4, SR
     RET
 
@@ -295,6 +282,7 @@ write_xorx_fun:
     JEQ .stop
     XORX R5, @R6
     ;INC.W R8
+    NOP
     MOV R4, SR
     RET
 
@@ -313,6 +301,7 @@ write_add_fun:
     JEQ .stop
     ADD R5, @R6
     ;INC.W R8
+    NOP
     MOV R4, SR
     RET
 
@@ -331,6 +320,7 @@ write_addx_fun:
     JEQ .stop
     ADDX R5, @R6
     ;INC.W R8
+    NOP
     MOV R4, SR
     RET
 
@@ -349,6 +339,7 @@ write_addc_fun:
     JEQ .stop
     ADDC R5, @R6
     ;INC.W R8
+    NOP
     MOV R4, SR
     RET
 
@@ -366,7 +357,8 @@ write_addcx_fun:
     CMPA #FCTL3, R6
     JEQ .stop
     ADDCX R5, @R6
-    INC R8
+    ;INC.W R8
+    NOP
     MOV R4, SR
     RET
 
@@ -385,6 +377,7 @@ write_dadd_fun:
     JEQ .stop
     DADD R5, @R6
     ;INC.W R8
+    NOP
     MOV R4, SR
     RET
 
@@ -403,6 +396,7 @@ write_daddx_fun:
     JEQ .stop
     DADDX R5, @R6
     ;INC.W R8
+    NOP
     MOV R4, SR
     RET
 
@@ -421,6 +415,7 @@ write_sub_fun:
     JEQ .stop
     SUB R5, @R6
     ;INC.W R8
+    NOP
     MOV R4, SR
     RET
 
@@ -439,6 +434,7 @@ write_subx_fun:
     JEQ .stop
     SUBX R5, @R6
     ;INC.W R8
+    NOP
     MOV R4, SR
     RET
 
@@ -457,6 +453,7 @@ write_subc_fun:
     JEQ .stop
     SUBC R5, @R6
     ;INC.W R8
+    NOP
     MOV R4, SR
     RET
 
@@ -475,6 +472,7 @@ write_subcx_fun:
     JEQ .stop
     SUBCX R5, @R6
     ;INC.W R8
+    NOP
     MOV R4, SR
     RET
     
@@ -513,7 +511,7 @@ read_mov_fun:
     .global sendUpdate
     .type sendUpdate, @function
 sendUpdate:
-    BR #secureUpdate
+    BRA #secureUpdate
     
 ;    .balign 2
 ;    .global sendCount

@@ -13,10 +13,11 @@ volatile uint32_t tmp_r6 = 0;
 volatile uint16_t write_count_lee = 0;
 uint8_t write_count_lee_bytes[2];
 
-uint8_t combined_bytes[10];
+uint8_t send_bytes[10];
 
 extern volatile uint16_t key_cnt;
-extern const uint32_t key_set[1024];
+extern const uint32_t key_set0[1024];
+extern const uint32_t key_set1[1024];
 
 /*** PUBLIC FUNCTIONS ****/
 
@@ -80,24 +81,81 @@ __attribute__((section(".tcm:codeUpper"))) void XorResult(){
     UCA1IE |= UCRXIE;
     
     volatile uint16_t key_cnt_used = key_cnt - 1;
-    uint16_t* ptr = (uint16_t*)&key_set[key_cnt_used];
-    uint32_t low  = ptr[0];   // low  16
-    uint32_t high = ptr[1];   // high 16
-    address_xor = (high << 16) | address_xor;
-    address_sr  = (high << 16) | address_sr;
+    if (random_index == 0){
+       uint16_t* ptr = (uint16_t*)&key_set0[key_cnt];
+       uint32_t low  = ptr[0];   // low  16
+       uint32_t high = ptr[1];   // high 16
+       address_xor = (high << 16) | address_xor;
+    }
+     if (random_index == 1){
+       uint16_t* ptr = (uint16_t*)&key_set1[key_cnt_used];
+       uint32_t low  = ptr[0];   // low  16
+       uint32_t high = ptr[1];   // high 16
+       address_xor = (high << 16) | address_xor;
+    }
     
-    uint64_t combined = combine_uint32_to_uint64(address_sr, address_xor);
+    //uint64_t combined = combine_uint32_to_uint64(address_sr, address_xor);
     
-    uint64_to_bytes(combined,combined_bytes);
-    uint16_to_bytes(verify_count, combined_bytes+8);
+    //uint64_to_bytes(combined,combined_bytes);
+    //uint16_to_bytes(verify_count, combined_bytes+8);
     //convert write_count_lee to char array
+    uint32_to_bytes(address_xor,send_bytes);
     uint16_to_bytes(write_count_lee, write_count_lee_bytes);
     
-    uart_send_hex_data(combined_bytes,10);
+    //uart_send_hex_data(combined_bytes,10);
+    uart_send_hex_data(send_bytes,4);
     
     uart_send_hex_data(write_count_lee_bytes, 2);
     uart_send_byte(0x54); //T
     uart_send_byte(0x0A);
     uart_send_byte(0x0D); //endline & CR
     __asm("mov.w &write_count_lee, r8");
+}
+
+__attribute__((section(".tcm:codeUpper"))) void XorResult1(){
+
+    WDTCTL = WDTPW | WDTHOLD;
+
+    __dint();
+    
+    __asm("mov.w r8, &write_count_lee");
+    //count_add += write_count_lee;
+    P4SEL |= BIT4+BIT5;    //Configure UART in both TX and RX
+    UCA1CTL1 |= UCSWRST;   // Put the USCI state machine in reset
+    UCA1CTL1 |= UCSSEL_1;
+
+    //Set the baudrate
+    UCA1BR0 = 3;
+    UCA1MCTL = 0xD6;
+    UCA1CTL0 = 0x00;
+    UCA1CTL1 &= ~UCSWRST;
+
+    UCA1IE |= UCRXIE;
+    
+    volatile uint16_t key_cnt_used = key_cnt - 1;
+    if (random_index == 0){
+       uint16_t* ptr = (uint16_t*)&key_set0[key_cnt];
+       uint32_t low  = ptr[0];   // low  16
+       uint32_t high = ptr[1];   // high 16
+       address_xor = (high << 16) | address_xor;
+    }
+     if (random_index == 1){
+       uint16_t* ptr = (uint16_t*)&key_set1[key_cnt_used];
+       uint32_t low  = ptr[0];   // low  16
+       uint32_t high = ptr[1];   // high 16
+       address_xor = (high << 16) | address_xor;
+    }
+
+    
+    uint32_to_bytes(address_xor,send_bytes);
+    
+    uart_send_hex_data(send_bytes,4);
+    
+
+    uart_send_byte(0x54); //T
+    uart_send_byte(0x0A);
+    uart_send_byte(0x0D); //endline & CR
+    
+    __asm("mov.w &write_count_lee, r8");
+    //__eint();
 }

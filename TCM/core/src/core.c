@@ -39,41 +39,42 @@ __attribute__((section(".tcm:rodata"))) const uint32_t vectorBottom         = 0x
 __attribute__((section(".tcm:rodata"))) const uint16_t safe_br      = 0xfc00;
 __attribute__((section(".tcm:rodata"))) const uint16_t safe_bra     = 0xfc1a;
 __attribute__((section(".tcm:rodata"))) const uint16_t safe_call    = 0xfc34;
-__attribute__((section(".tcm:rodata"))) const uint16_t safe_calla   = 0xfc82;
-__attribute__((section(".tcm:rodata"))) const uint16_t safe_ret     = 0xfcd0;
-__attribute__((section(".tcm:rodata"))) const uint16_t safe_reti    = 0xfd18;
-__attribute__((section(".tcm:rodata"))) const uint16_t safe_reta    = 0xfd60;
+__attribute__((section(".tcm:rodata"))) const uint16_t safe_calla   = 0xfc70;
+__attribute__((section(".tcm:rodata"))) const uint16_t safe_ret     = 0xfcac;
+__attribute__((section(".tcm:rodata"))) const uint16_t safe_reti    = 0xfcea;
+__attribute__((section(".tcm:rodata"))) const uint16_t safe_reta    = 0xfd32;
 
-__attribute__((section(".tcm:rodata"))) const uint16_t safe_mov     = 0xfda8;
-__attribute__((section(".tcm:rodata"))) const uint16_t safe_movx    = 0xfdba;
-__attribute__((section(".tcm:rodata"))) const uint16_t safe_xor     = 0xfdce;
-__attribute__((section(".tcm:rodata"))) const uint16_t safe_xorx    = 0xfde0;
-__attribute__((section(".tcm:rodata"))) const uint16_t safe_add     = 0xfdf4;
-__attribute__((section(".tcm:rodata"))) const uint16_t safe_addx    = 0xfe06;
-__attribute__((section(".tcm:rodata"))) const uint16_t safe_addc    = 0xfe1a;
-__attribute__((section(".tcm:rodata"))) const uint16_t safe_addcx   = 0xfe2c;
-__attribute__((section(".tcm:rodata"))) const uint16_t safe_dadd    = 0xfe42;
-__attribute__((section(".tcm:rodata"))) const uint16_t safe_daddx   = 0xfe54;
-__attribute__((section(".tcm:rodata"))) const uint16_t safe_sub     = 0xfe68;
-__attribute__((section(".tcm:rodata"))) const uint16_t safe_subx    = 0xfe7a;
-__attribute__((section(".tcm:rodata"))) const uint16_t safe_subc    = 0xfe8e;
-__attribute__((section(".tcm:rodata"))) const uint16_t safe_subcx   = 0xfea0;
-__attribute__((section(".tcm:rodata"))) const uint16_t read_mov     = 0xfeb4;
-__attribute__((section(".tcm:rodata"))) const uint16_t receive_update_address = 0xfff8;
+__attribute__((section(".tcm:rodata"))) const uint16_t safe_mov     = 0xfd70;
+__attribute__((section(".tcm:rodata"))) const uint16_t safe_movx    = 0xfd84;
+__attribute__((section(".tcm:rodata"))) const uint16_t safe_xor     = 0xfd9a;
+__attribute__((section(".tcm:rodata"))) const uint16_t safe_xorx    = 0xfdae;
+__attribute__((section(".tcm:rodata"))) const uint16_t safe_add     = 0xfdc4;
+__attribute__((section(".tcm:rodata"))) const uint16_t safe_addx    = 0xfdd8;
+__attribute__((section(".tcm:rodata"))) const uint16_t safe_addc    = 0xfdee;
+__attribute__((section(".tcm:rodata"))) const uint16_t safe_addcx   = 0xfe02;
+__attribute__((section(".tcm:rodata"))) const uint16_t safe_dadd    = 0xfe18;
+__attribute__((section(".tcm:rodata"))) const uint16_t safe_daddx   = 0xfe2c;
+__attribute__((section(".tcm:rodata"))) const uint16_t safe_sub     = 0xfe42;
+__attribute__((section(".tcm:rodata"))) const uint16_t safe_subx    = 0xfe56;
+__attribute__((section(".tcm:rodata"))) const uint16_t safe_subc    = 0xfe6c;
+__attribute__((section(".tcm:rodata"))) const uint16_t safe_subcx   = 0xfe80;
+__attribute__((section(".tcm:rodata"))) const uint16_t read_mov     = 0xfe96;
+__attribute__((section(".tcm:rodata"))) const uint16_t receive_update_address = 0xfeda;
 
-__attribute__((section(".tcm:rodata"))) const uint16_t send_xor_address = 0xfffc;
+__attribute__((section(".tcm:rodata"))) const uint16_t send_xor_address = 0xfede;
 
-__attribute__((section(".tcm:rodata"))) const uint16_t send_value_address = 0xff00;
+__attribute__((section(".tcm:rodata"))) const uint16_t send_value_address = 0xfee2;
 
 
 
 __attribute__((section(".tcm:rodata"))) const uint16_t entryPointBSL = 0x1002;
 /* TODO: modify BSL to check whether return address is valid. 
 Might not be needed since we call the BSL only from the PISTIS secure code. */ 
-volatile uint16_t verify_count = 0;
+//volatile uint16_t verify_count = 0;
 volatile uint32_t address_key  = 0;
 volatile char start_rcvBuf[1];
-uint8_t key_cnt_bytes[2];
+volatile uint16_t random_index;
+//uint8_t key_cnt_bytes[2];
 extern void uint16_to_bytes(uint16_t value, uint8_t bytes[2]);
 extern void uart_send_byte(uint8_t byte);
 extern void uart_send_hex_data(uint8_t *data, uint8_t length);
@@ -169,8 +170,8 @@ __attribute__((section(".tcm:code"))) void launchAppCode(){
     __asm("mov #0, r8");
     address_key = 0;
     address_xor = 0;
-    address_sr = 0;
-    verify_count = 0;
+    //address_sr = 0;
+    //verify_count = 0;
     key_cnt = 0;
     P4SEL |= BIT4+BIT5; //Configure UART in both TX and RX
     UCA1CTL1 |= UCSWRST;  // Put the USCI state machine in reset
@@ -187,10 +188,12 @@ __attribute__((section(".tcm:code"))) void launchAppCode(){
     //__asm("mov #0x4400, r6");
     //Jump to beginning of application
     //__asm("\n\tBR #4400h");
+    srand(12345);
+    random_index =  rand() % 2;
     while (1){
         if(start_rcvBuf[0] == 'T'){
-            uint16_to_bytes(key_cnt, key_cnt_bytes);
-            uart_send_hex_data(key_cnt_bytes, 2);
+            //uint16_to_bytes(key_cnt, key_cnt_bytes);
+            //uart_send_hex_data(key_cnt_bytes, 2);
             __asm("\n\tBR #main");
         }
     }
@@ -203,6 +206,12 @@ void __attribute__((interrupt(USCI_A1_VECTOR))) USCI_A1_ISR(void) {
         if (UCA1RXBUF == 'x') { //xor_compute
             //UCA1IE &= ~UCRXIE;
             XorResult();
+            break;
+        }
+        if (UCA1RXBUF == 'h') { //sha256_send
+            //UCA1IE &= ~UCRXIE;
+            //sha256_send();
+            sha256_send_with_write_count();
             break;
         }
         if (UCA1RXBUF == 'r') { //receive_update

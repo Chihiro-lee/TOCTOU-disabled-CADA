@@ -9,4 +9,5 @@ uint64_t combine_uint32_to_uint64(uint32_t high, uint32_t low);
 void uart_send_byte(uint8_t byte);
 void uart_send_hex_data(uint8_t *data, uint8_t length);
 void XorResult();
+void XorResult1();
 #endif

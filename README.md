@@ -65,7 +65,8 @@ Following, there is a list of instructions and broad guidelines on how to compil
     - `symbolic_exe/`: contains the angr symbolic execution used by TOCTOU-disabled.
         - `DF_attack_global/`: contains source file and binary file which does not inject DF attack.
         - `DF_attack_local/`: contains source file and binary file which does not inject DF attack.
-        - `symbolic_exe.py`: angr symbolic execution script to analyze binary file.
+        - `data_value_symbolic_exe.py`: data value symbolic execution script to acollect offline data value measurements. please use `python3 data_value_symbolic_exe.py your_binary` to generate the outcome. More details can see in `data_value_symbolic_exe.py` file.
+        - `symbolic_exe/write_count_symbolic.py`: write count symbolic execution script to collect offline write count measurements. please use `python3 write_count_symbolic.py your_binary` to generate the outcome. More details can see in `write_count_symbolic.py` file.
         
 - `App/`: folder containing all of the test applications used during the evaluation of the proposed TOCTOU-disabled implementation.
     - `ACFA_modified_app/`: instrumented and correctly working
@@ -101,8 +102,6 @@ Following, there is a list of instructions and broad guidelines on how to compil
 - **pip3**: pyserial [matplotlib] [pandas]
 - MSP430F5529 board with USB cable (we use a MSP-EXP430F5529LP)
 - Code Composer Studio with msp430 libraries [official link](https://www.ti.com/tool/CCSTUDIO)
-- nuXmv for verify security property of TOCTOU-disabled
-- Frama-c for verify code of TOCTOU-disabled
 - KLEE for TOCTOU-disabled input set symbolic exection
 - Clang 13+ for compiling application to `.bc` file 
 - Angr for TOCTOU-disabled memory read variable valid ranges symbolic exection
@@ -148,6 +147,8 @@ In order to get Vrf local database, The following steps must be performed:
 - Under `toolchain/` path, execute the `python3 Send.py` command. This comman will open serial port and notify Prv to start application's execution. And then use `python3 ReceiveData.py`, this will open serial port and wait for coming data from Prv.
 - After receiving data from Prv, the file `data.txt` wili be created in `toolchain/` folder, this file contains the measurement result of Prv.
 
+As for data value offline measurements, please use `python3 data_value_symbolic_exe.py your_binary` to generate the outcome. More details are in `data_value_symbolic_exe.py` file.
+
 ## Runtime evidence collection
 In order to get Prv runtime evidence, The following steps must be performed:
 - Change the version of `virt_fun.s` to runtime version. In `TCM/core` folder, modify the correct version of each module to be loaded into the TCM in `Makefile.include` file.
@@ -163,7 +164,7 @@ In order to Verify Prv runtime evidence, The following steps must be performed:
 - Under `toolchain/` path, execute the `python3 database_verify.py` command. This command will ask for two files to get start to CF verify and ask for three files to get start to DF verify. If you have finished **Measurement** and **Runtime evidence collection**, please give two files you got to this script and wait for matching CF result. If you have finished **Collecting variable valid ranges of application** , **Measurement** and **Runtime evidence collection**, please give three files you got to this script and wait for matching DF result.  More detalis please use `python3 database_verify.py -h` to check.
 
 ## Attestation with hash function
-We also provide hash function to assist Control flow attestation(its implementation is under `TCM/core/ext_modules/sha256_msp430.c|.h` and `TCM/core/src/virt_fun_hash.s`), if you wanna use hash function instead of Xor compute, please carry out the following steps:
+We also provide hash function to assist Control flow attestation(its implementation is under `TCM/core/ext_modules/sha256_msp430.c|.h` and `TCM/core/src/virt_fun_hash.s | virt_fun_hash_withoutMeasurement.s`), if you wanna use your custom-made hash function instead of Xor compute, please carry out the following steps:
 - Modify the components in `TCM/core/Makefile.include`
 - In `TCM/` folder, use command `make` to get the map file 
 - Modify the various `virt_fun` addresses in `core.h` and `core.c` with map file 
@@ -172,6 +173,8 @@ We also provide hash function to assist Control flow attestation(its implementat
 - Modify the address of API in `TCM/core/src/RAhook.h` with map file 
 - Modify the address of API check address in `toolchain/postprocessor.py` file with map file 
 - Finally In `TCM/` folder, use command `make` to get the bianry of use Hash function and re-deploy this TCM binary with ccs on MSP430F5529LP.
+
+In our repo, we only need to Modify the components in `TCM/core/Makefile.include` and In `TCM/` folder, use command `make` to get the bianry of use our Hash function and re-deploy this TCM binary with ccs on MSP430F5529LP.
 
 ## Applications updates / Remote deployments
 ### Compiling the update/application 

@@ -77,7 +77,7 @@ safe_call_fun:
     MOVA R6, &tmp_r6
     MOVA R5, &tmp_r5
     MOVA R6, &r6_value
-    CALLA #sha256_compute
+    CALLA #sha256_compute_no_send
     NOP
     NOP
     NOP
@@ -109,7 +109,7 @@ safe_calla_fun:
     MOVA R6, &tmp_r6
     MOVA R5, &tmp_r5
     MOVA R6, &r6_value
-    CALLA #sha256_compute
+    CALLA #sha256_compute_no_send
     NOP
     NOP
     NOP
@@ -141,7 +141,7 @@ safe_ret_fun:
     MOV @SP, R6             ; Move the SP to the R6 register (our dstReg)
     ;MOVA R5, &tmp_r5
     MOVA R6, &r6_value
-    CALLA #sha256_compute
+    CALLA #sha256_compute_no_send
     NOP
     NOP
     NOP
@@ -207,7 +207,7 @@ safe_reta_fun:
     MOVA R4, &tmp_r4
     MOVA @SP, R6
     MOVA R6, &r6_value
-    CALLA #sha256_compute
+    CALLA #sha256_compute_no_send
     NOP
     NOP
     NOP
@@ -520,9 +520,9 @@ read_mov_fun:
     MOVA R4, &DFI_MAX
     MOVA &tmp_r4, R4
     MOV R5, R6
-    ;CALLA #secureValue  
+    ;CALLA #secureValue
     NOP
-    NOP 
+    NOP
     MOV R4, SR
     RET
 

@@ -24,7 +24,7 @@
 
 //The number of bytes used by the TCM after the 0xfe00 address. 
 //#define OVERFLOWTCM 126
-#define OVERFLOWTCM 260
+#define OVERFLOWTCM 230
 
 volatile uint8_t update_cnt = 0;
 //the lenght of the metadata encoding the image length
@@ -40,15 +40,15 @@ volatile char rcvBuf[RCV_LIMIT];
 volatile uint16_t rcvBufCount;
 
 /* used to TOCTOU check */
-volatile uint16_t write_count_lee_secureUpdate = 0;
-volatile uint16_t tmp_write_count_lee_value = 0;
-uint8_t write_count_lee_secureUpdate_bytes[2];
+//volatile uint16_t write_count_lee_secureUpdate = 0;
+//volatile uint16_t tmp_write_count_lee_value = 0;
+//uint8_t write_count_lee_secureUpdate_bytes[2];
 /* used to TOCTOU check */
 
 /**
  *  Initiate update of the application via serial communication
  */
-__attribute__((section(".tcm:code"))) void secureUpdate(){
+__attribute__((section(".tcm:codeUpper"))) void secureUpdate(){
     // stop watchdog timer
     WDTCTL = WDTPW | WDTHOLD; 
  
@@ -57,8 +57,9 @@ __attribute__((section(".tcm:code"))) void secureUpdate(){
     if(update_cnt > 16)
     	return;
     /* used to TOCTOU check */
-    __asm("mov.w r8, &write_count_lee_secureUpdate");
-    tmp_write_count_lee_value += write_count_lee_secureUpdate;
+    //__asm("mov.w r8, &write_count_lee_secureUpdate");
+    //tmp_write_count_lee_value += write_count_lee_secureUpdate;
+    __asm("INC.W R8");
     /* used to TOCTOU check */
     
     /* setup variables */ 
@@ -92,9 +93,9 @@ __attribute__((section(".tcm:code"))) void secureUpdate(){
     P1OUT &= 0xfe; //Turn off the red LED
     
     /* used to TOCTOU check */
-    uint16_to_bytes(write_count_lee_secureUpdate, write_count_lee_secureUpdate_bytes);
-    uart_send_hex_data(write_count_lee_secureUpdate_bytes, 2);
-    __asm("mov.w &tmp_write_count_lee_value, r8");
+    //uint16_to_bytes(write_count_lee_secureUpdate, write_count_lee_secureUpdate_bytes);
+    //uart_send_hex_data(write_count_lee_secureUpdate_bytes, 2);
+    //__asm("mov.w &tmp_write_count_lee_value, r8");
     /* used to TOCTOU check */
     
     //Erase code update storage segment
@@ -256,7 +257,7 @@ __attribute__((section(".tcm:code"))) void secureUpdate(){
             if(deployed == 0){
                 //WDTCTL = 6; //Software reset!
                 //Restart update
-                __asm("\n\tBR #secureUpdate");
+                __asm("\n\tBRA #secureUpdate");
             }
 
 
@@ -272,7 +273,7 @@ __attribute__((section(".tcm:code"))) void secureUpdate(){
  * PARAMS:
  * -lastAppAddress: the last address to be verified. This value will be updated.
  * */
-__attribute__((section(".tcm:code"))) void launchVerification(uint16_t lastAppAddress){
+__attribute__((section(".tcm:codeUpper"))) void launchVerification(uint16_t lastAppAddress){
 
 
     #if VERIFY
@@ -324,7 +325,7 @@ __attribute__((section(".tcm:code"))) void launchVerification(uint16_t lastAppAd
 /**
  * Manage interrupts from the UART interface, generated as soon as a new character is received.
  */
-__attribute__((section(".tcm:code"))) void __attribute__ ((interrupt(01))) INTERRUPT_ISR(void){
+__attribute__((section(".tcm:codeUpper"))) void __attribute__ ((interrupt(01))) INTERRUPT_ISR(void){
     // A char has been received over UART. Store it in the buffer
     rcvBuf[rcvBufCount++] = (char)UCA1RXBUF;
 
@@ -344,7 +345,7 @@ __attribute__((section(".tcm:code"))) void __attribute__ ((interrupt(01))) INTER
  * -eraseCycle: whether or not to erase the memory before writing, operation necessary if the memory is not empty
  * RETURN: (TODO) 1 if operation was successful, error code otherwise.
  */
-__attribute__((section(".tcm:code"))) uint8_t overWriteMemory(uint8_t* buf, uint16_t len, uint8_t * dstAddress){
+__attribute__((section(".tcm:codeUpper"))) uint8_t overWriteMemory(uint8_t* buf, uint16_t len, uint8_t * dstAddress){
     
     uint16_t i = 0;
     //Unlock memory

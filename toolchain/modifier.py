@@ -201,30 +201,30 @@ if(virtualLabel == 0):
     safe_br     = 0xfc00
     safe_bra    = 0xfc1a
     safe_call   = 0xfc34
-    safe_calla  = 0xfc82
-    safe_ret    = 0xfcd0
-    safe_reti   = 0xfd18
-    safe_reta   = 0xfd60
+    safe_calla  = 0xfc70
+    safe_ret    = 0xfcac
+    safe_reti   = 0xfcea
+    safe_reta   = 0xfd32
 
-    write_mov   = 0xfda8
-    write_movx  = 0xfdba
-    write_xor   = 0xfdce
-    write_xorx  = 0xfde0
-    write_add   = 0xfdf4
-    write_addx  = 0xfe06
-    write_addc  = 0xfe1a
-    write_addcx = 0xfe2c
-    write_dadd  = 0xfe42
-    write_daddx = 0xfe54
-    write_sub   = 0xfe68
-    write_subx  = 0xfe7a
-    write_subc  = 0xfe8e
-    write_subcx = 0xfea0
-    read_mov_fun = 0xfeb4
+    write_mov   = 0xfd70
+    write_movx  = 0xfd84
+    write_xor   = 0xfd9a
+    write_xorx  = 0xfdae
+    write_add   = 0xfdc4
+    write_addx  = 0xfdd8
+    write_addc  = 0xfdee
+    write_addcx = 0xfe02
+    write_dadd  = 0xfe18
+    write_daddx = 0xfe2c
+    write_sub   = 0xfe42
+    write_subx  = 0xfe56
+    write_subc  = 0xfe6c
+    write_subcx = 0xfe80
+    read_mov_fun = 0xfe96
 
-    secure_update= 0xfef8
-    secure_xor = 0xfefc
-    secure_value = 0xff00
+    secure_update= 0xfeda
+    secure_xor = 0xfede
+    secure_value = 0xfee2
     
     
 

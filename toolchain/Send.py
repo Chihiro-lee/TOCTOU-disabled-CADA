@@ -13,6 +13,10 @@ def send_T():
 def send_x():
     ser.write(b'x')  #  'x'
     print("Sent 'x' to trigger xor_compute")
+
+def send_h():
+    ser.write(b'h')  #  'h'
+    print("Sent 'x' to trigger sha256_send")
     
 def send_r():
     ser.write(b'r')  #  'r'
