@@ -82,7 +82,7 @@ __attribute__((section(".tcm:codeUpper"))) void XorResult(){
     
     volatile uint16_t key_cnt_used = key_cnt - 1;
     if (random_index == 0){
-       uint16_t* ptr = (uint16_t*)&key_set0[key_cnt];
+       uint16_t* ptr = (uint16_t*)&key_set0[key_cnt_used];
        uint32_t low  = ptr[0];   // low  16
        uint32_t high = ptr[1];   // high 16
        address_xor = (high << 16) | address_xor;
@@ -134,7 +134,7 @@ __attribute__((section(".tcm:codeUpper"))) void XorResult1(){
     
     volatile uint16_t key_cnt_used = key_cnt - 1;
     if (random_index == 0){
-       uint16_t* ptr = (uint16_t*)&key_set0[key_cnt];
+       uint16_t* ptr = (uint16_t*)&key_set0[key_cnt_used];
        uint32_t low  = ptr[0];   // low  16
        uint32_t high = ptr[1];   // high 16
        address_xor = (high << 16) | address_xor;
