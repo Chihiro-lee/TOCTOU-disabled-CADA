@@ -271,17 +271,17 @@ __attribute__((section(".tcm:codeUpper"))) void KeyGen(){
     if(key_cnt > 1023)
        key_cnt = 0;
     if (random_index == 0){
-       uint16_t* ptr = (uint16_t*)&key_set0[key_cnt];
-       uint32_t low  = ptr[0];   // low  16
-       uint32_t high = ptr[1];   // high 16
-       address_key = (high << 16) | low;
+         uint32_t v = key_set0[key_cnt];
+         uint32_t low  = v & 0xFFFFU;
+         uint32_t high = (v >> 16) & 0xFFFFU;
+         address_key = (high << 16) | low;
        key_cnt++; 
     }
     if (random_index == 1){
-       uint16_t* ptr = (uint16_t*)&key_set1[key_cnt];
-       uint32_t low  = ptr[0];   // low  16
-       uint32_t high = ptr[1];   // high 16
-       address_key = (high << 16) | low;
+         uint32_t v = key_set1[key_cnt];
+         uint32_t low  = v & 0xFFFFU;
+         uint32_t high = (v >> 16) & 0xFFFFU;
+         address_key = (high << 16) | low;
        key_cnt++; 
     }
     

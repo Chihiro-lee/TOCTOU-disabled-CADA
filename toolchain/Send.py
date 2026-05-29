@@ -26,6 +26,10 @@ def send_s():
     ser.write(b's')  #  's'
     print("Sent 's' to stop app")
 
+def send_v():
+    ser.write(b'v')  #  'v'
+    print("Sent 'v' to trigger data_value_send")
+    
 send_T()    
 #send_x()
 #send_r()

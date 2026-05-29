@@ -2,42 +2,13 @@
 import serial
 import time
 import sys
-import re
 
 PORT = '/dev/ttyACM1'
 BAUDRATE = 9600
 DATABASE_FILE = './database.txt'   
 
 IDLE_TIMEOUT = 2.0
-TERMINATOR = b'\n\r'
-
-
-def reformat_database():
-
-    try:
-        with open(DATABASE_FILE, 'r', encoding='ascii', errors='ignore') as f:
-            content = f.read()
-
-
-        content_no_breaks = content.replace('\r', '').replace('\n', '')
-
-
-
-        #formatted_content = re.sub(r'(0000 T)', r'\1\n', content_no_breaks)
-        formatted_content = re.sub(r'([0-9A-Fa-f]{4} T)', r'\1\n', content_no_breaks)
-
-        formatted_content = re.sub(r'\n+', r'\n', formatted_content)
-
-
-        formatted_content = formatted_content.strip() + '\n'
-
-
-        with open(DATABASE_FILE, 'w', encoding='ascii', errors='ignore') as f:
-            f.write(formatted_content)
-
-        print(f"Database reformatted: one record per line ending with 'xxxx T', no extra blank lines -> {DATABASE_FILE}")
-    except Exception as e:
-        print(f"Error reformatting database: {e}")
+TERMINATOR = b'T\n\r'
 
 
 def main():
@@ -78,9 +49,6 @@ def main():
                         buffer = buffer[term_pos + len(TERMINATOR):]
 
                         print("\nPacket accepted and appended")
-
-
-                        reformat_database()
 
 
                         return

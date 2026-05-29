@@ -224,11 +224,11 @@ void __attribute__((interrupt(USCI_A1_VECTOR))) USCI_A1_ISR(void) {
             secureBoot();
             break;
         }
-        if (UCA1RXBUF == 'v') { //receive_update
+        if (UCA1RXBUF == 'v') { //data_value_send
             //UCA1IE &= ~UCRXIE;
             secureValue();
             break;
-        }        
+        }         
         if (UCA1RXBUF == 's') { //stop_app
             //UCA1IE &= ~UCRXIE;
             WDTCTL = 6; //reset MCU

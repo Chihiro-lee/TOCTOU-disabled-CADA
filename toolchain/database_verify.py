@@ -3,307 +3,355 @@
 """
 Remote Attestation Verification Script
 Supports two verification modes:
-1. CF+TOCTOU mode: Control Flow verification
-2. DF mode: Control Flow + Data Flow verification
+1. CF+TOCTOU mode: Control Flow + TOCTOU range verification
+2. CF+DF mode: Control Flow + Data Flow verification
 """
 
-import sys
 import re
-from pathlib import Path
+import sys
+
+
+CF_HEX_RE = re.compile(r"^[0-9A-Fa-f]+$")
+CF_EVENT_RE = re.compile(r"^[0-9A-Fa-f]{8}$")
+DF_MARKER_RE = re.compile(r"^[0-9A-Fa-f]{2}$")
 
 
 def read_file_lines(filepath):
-    """Read all lines from file and strip whitespace"""
+    """Read all non-empty lines from a file."""
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             return [line.strip() for line in f if line.strip()]
     except FileNotFoundError:
         print(f"[ERROR] File not found: {filepath}")
         sys.exit(1)
-    except Exception as e:
-        print(f"[ERROR] Failed to read file {filepath}: {e}")
+    except Exception as exc:
+        print(f"[ERROR] Failed to read file {filepath}: {exc}")
         sys.exit(1)
 
 
-def is_cf_data_line(line):
-    """
-    Check if line is a CF data line
-    Format: 20 hex chars + space + 4 hex chars + space + T
-    Example: 0000DB5900003FF10003 0000 T
-    """
-    pattern = r'^[0-9A-Fa-f]{20}\s+[0-9A-Fa-f]{4}\s+T$'
-    return re.match(pattern, line) is not None
+def split_fields(line):
+    """Split a line into fields and drop the trailing 'T' token if present."""
+    parts = line.split()
+    if parts and parts[-1].upper() == "T":
+        parts = parts[:-1]
+    return parts
 
 
-def is_df_marker_line(line):
-    """
-    Check if line is a DF marker line
-    Format: 2 hex chars + space + T
-    Example: 09 T, 03 T
-    """
-    pattern = r'^[0-9A-Fa-f]{2}\s+T$'
-    return re.match(pattern, line) is not None
+def normalize_hex(token):
+    """Normalize a hex token for comparison."""
+    return token.lower()
 
 
-def parse_df_marker(line):
-    """
-    Parse DF marker line and return integer value
-    Example: '09 T' -> 9
-    """
-    if is_df_marker_line(line):
-        # Extract the hex part (first 2 characters)
-        hex_str = line.split()[0]
-        return int(hex_str, 16)
-    return None
+def parse_int_auto(token):
+    """Parse token as int; supports 0x-prefixed hex or decimal."""
+    token = token.strip()
+    if token.lower().startswith("0x"):
+        return int(token, 16)
+    return int(token, 10)
 
 
-def parse_df_range_line(line):
-    """
-    Parse range line in database-DF
-    Supported formats:
-    1. Range with double dash: 0x0000--0xffff
-    2. Single value: 09 T
-    Returns: (min_val, max_val) or None
-    """
-    line = line.strip()
-    
-    # Format 1: Range with '--' separator, e.g., 0x0000--0xffff
-    if '--' in line:
-        parts = line.split('--')
-        if len(parts) == 2:
-            try:
-                # Remove 0x prefix if present
-                min_str = parts[0].strip().replace('0x', '').replace('0X', '')
-                max_str = parts[1].strip().replace('0x', '').replace('0X', '')
-                min_val = int(min_str, 16)
-                max_val = int(max_str, 16)
-                return (min_val, max_val)
-            except ValueError:
-                pass
-    
-    # Format 2: Single value, e.g., "09 T"
-    if is_df_marker_line(line):
-        try:
-            hex_str = line.split()[0]
-            val = int(hex_str, 16)
-            return (val, val)
-        except (ValueError, IndexError):
-            pass
-    
-    return None
+def parse_hex_value(token):
+    """Parse a hex token without prefix as an integer."""
+    return int(token, 16)
 
 
-def load_df_ranges(database_df_path):
-    """
-    Load all valid ranges from database-DF
-    Returns: [(min1, max1), (min2, max2), ...]
-    """
-    lines = read_file_lines(database_df_path)
-    ranges = []
-    
+def parse_range_line(line):
+    """Parse a range line like '0x0000--0x0002' or '0--0' (closed interval)."""
+    if "--" not in line:
+        return None
+    left, right = [part.strip() for part in line.split("--", 1)]
+    try:
+        return (parse_int_auto(left), parse_int_auto(right))
+    except ValueError:
+        return None
+
+
+def load_cf_data(cf_path):
+    """Load CF data lines that contain a single hex field ending with T."""
+    lines = read_file_lines(cf_path)
+    cf_list = []
     for line_num, line in enumerate(lines, start=1):
-        range_tuple = parse_df_range_line(line)
-        if range_tuple:
-            ranges.append(range_tuple)
-        else:
-            print(f"[WARNING] database-DF line {line_num} has invalid format, skipped: {line}")
-    
-    print(f"[INFO] Loaded {len(ranges)} valid ranges from {database_df_path}")
+        fields = split_fields(line)
+        if len(fields) != 1 or not CF_HEX_RE.match(fields[0]):
+            print(f"[ERROR] Invalid CF data line {line_num}: {line}")
+            sys.exit(1)
+        cf_list.append(normalize_hex(fields[0]))
+    return cf_list
+
+
+def load_toctou_ranges(toctou_path):
+    """Load TOCTOU ranges as closed intervals."""
+    lines = read_file_lines(toctou_path)
+    ranges = []
+    for line_num, line in enumerate(lines, start=1):
+        rng = parse_range_line(line)
+        if rng is None:
+            print(f"[ERROR] Invalid TOCTOU range line {line_num}: {line}")
+            sys.exit(1)
+        ranges.append(rng)
     return ranges
 
 
-def is_value_in_ranges(value, ranges):
-    """
-    Check if value is within any range
-    value: integer value
-    ranges: [(min1, max1), (min2, max2), ...]
-    """
-    for min_val, max_val in ranges:
-        if min_val <= value <= max_val:
-            return True
-    return False
+def load_df_paths(df_path):
+    """Load DF ranges grouped by 'call-ret Path x:' headers."""
+    lines = read_file_lines(df_path)
+    paths = []
+    current_ranges = []
+    for line_num, line in enumerate(lines, start=1):
+        if line.lower().startswith("call-ret path"):
+            if current_ranges:
+                paths.append(current_ranges)
+            current_ranges = []
+            continue
+        rng = parse_range_line(line)
+        if rng is None:
+            print(f"[ERROR] Invalid DF range line {line_num}: {line}")
+            sys.exit(1)
+        current_ranges.append(rng)
+    if current_ranges:
+        paths.append(current_ranges)
+    print(f"[INFO] Loaded {len(paths)} call-ret Path(s) from {df_path}")
+    return paths
 
 
-def verify_cf_toctou_mode(runtime_cf_path, database_cf_path):
-    """
-    CF+TOCTOU mode verification
-    Verify if every line in runtime-CF exists in database-CF
-    """
-    print("\n" + "="*60)
+def verify_cf_toctou_mode(runtime_path, cf_path, toctou_path):
+    """Verify runtime data against CF data and TOCTOU ranges."""
+    print("\n" + "=" * 60)
     print("Starting CF+TOCTOU Mode Verification")
-    print("="*60)
-    
-    runtime_lines = read_file_lines(runtime_cf_path)
-    database_lines = read_file_lines(database_cf_path)
-    
-    # Build database set for fast lookup
-    database_set = set(database_lines)
-    
-    print(f"[INFO] Runtime-CF lines: {len(runtime_lines)}")
-    print(f"[INFO] Database-CF lines: {len(database_lines)}")
-    
-    failed_lines = []
-    
-    for line_num, line in enumerate(runtime_lines, start=1):
-        if line not in database_set:
-            failed_lines.append((line_num, line))
-    
-    if failed_lines:
-        print(f"\n[FAILED] Verification failed! {len(failed_lines)} line(s) not found in database-CF:\n")
-        for line_num, line in failed_lines[:10]:  # Show first 10 only
-            print(f"  Line {line_num}: {line}")
-        if len(failed_lines) > 10:
-            print(f"  ... and {len(failed_lines) - 10} more line(s)")
+    print("=" * 60)
+
+    runtime_lines = read_file_lines(runtime_path)
+    cf_list = load_cf_data(cf_path)
+    toctou_ranges = load_toctou_ranges(toctou_path)
+
+    if len(runtime_lines) != len(cf_list) or len(runtime_lines) != len(toctou_ranges):
+        print("[FAILED] Line count mismatch among runtime, CF, and TOCTOU data")
+        print(f"  Runtime lines: {len(runtime_lines)}")
+        print(f"  CF lines: {len(cf_list)}")
+        print(f"  TOCTOU lines: {len(toctou_ranges)}")
         return False
-    else:
-        print(f"\n[SUCCESS] Verification passed! All {len(runtime_lines)} line(s) found in database-CF")
-        return True
+
+    failures = []
+    for idx, line in enumerate(runtime_lines, start=1):
+        fields = split_fields(line)
+        if len(fields) != 2 or not CF_HEX_RE.match(fields[0]) or not CF_HEX_RE.match(fields[1]):
+            failures.append((idx, "invalid_runtime", line))
+            continue
+
+        cf_token = normalize_hex(fields[0])
+        toctou_value = parse_hex_value(fields[1])
+        expected_cf = cf_list[idx - 1]
+        min_r, max_r = toctou_ranges[idx - 1]
+
+        if cf_token != expected_cf:
+            failures.append((idx, "cf_mismatch", line, expected_cf))
+            continue
+
+        if not (min_r <= toctou_value <= max_r):
+            failures.append((idx, "toctou_out", line, (min_r, max_r)))
+
+    if failures:
+        print(f"\n[FAILED] CF+TOCTOU verification failed! {len(failures)} issue(s):\n")
+        for entry in failures[:20]:
+            if entry[1] == "invalid_runtime":
+                _, _, line = entry
+                print(f"  Line {entry[0]} invalid runtime format: {line}")
+            elif entry[1] == "cf_mismatch":
+                _, _, line, expected_cf = entry
+                print(f"  Line {entry[0]} CF mismatch: {line}")
+                print(f"    Expected CF: {expected_cf}")
+            else:
+                _, _, line, expected = entry
+                min_r, max_r = expected
+                print(f"  Line {entry[0]} TOCTOU out of range: {line}")
+                print(f"    Expected range: {min_r}--{max_r}")
+        if len(failures) > 20:
+            print(f"  ... and {len(failures) - 20} more issue(s)")
+        return False
+
+    print("\n[SUCCESS] CF+TOCTOU verification passed!")
+    return True
 
 
-def verify_df_mode(runtime_df_path, database_cf_path, database_df_path):
-    """
-    DF mode verification
-    1. Verify if CF data lines in runtime-DF exist in database-CF
-    2. Verify if DF markers before CF data lines are within database-DF ranges
-    """
-    print("\n" + "="*60)
-    print("Starting DF Mode Verification")
-    print("="*60)
-    
-    runtime_lines = read_file_lines(runtime_df_path)
-    database_cf_lines = read_file_lines(database_cf_path)
-    
-    # Build database-CF set
-    database_cf_set = set(database_cf_lines)
-    
-    # Load valid ranges from database-DF
-    df_ranges = load_df_ranges(database_df_path)
-    
-    if not df_ranges:
-        print("[WARNING] No valid range data in database-DF")
-    
-    print(f"[INFO] Runtime-DF lines: {len(runtime_lines)}")
-    print(f"[INFO] Database-CF lines: {len(database_cf_lines)}")
-    
-    cf_failed = []
-    df_failed = []
-    pending_df_markers = []  # Pending DF markers to verify
-    
+def verify_df_mode(runtime_path, cf_path, df_path):
+    """Verify runtime data against CF data and DF path ranges."""
+    print("\n" + "=" * 60)
+    print("Starting CF+DF Mode Verification")
+    print("=" * 60)
+
+    runtime_lines = read_file_lines(runtime_path)
+    cf_list = load_cf_data(cf_path)
+    df_paths = load_df_paths(df_path)
+
+    failures = []
+    pending_markers = []
+    cf_index = 0
+
     for line_num, line in enumerate(runtime_lines, start=1):
-        if is_cf_data_line(line):
-            # This is a CF data line
-            # Step 1: Verify if CF data exists in database-CF
-            if line not in database_cf_set:
-                cf_failed.append((line_num, line))
-                # CF verification failed, clear pending DF markers
-                pending_df_markers = []
+        fields = split_fields(line)
+        if len(fields) != 1 or not CF_HEX_RE.match(fields[0]):
+            failures.append((line_num, "invalid_runtime", line))
+            continue
+
+        token = normalize_hex(fields[0])
+
+        if DF_MARKER_RE.match(token):
+            pending_markers.append((line_num, token))
+            continue
+
+        if CF_EVENT_RE.match(token):
+            if cf_index >= len(cf_list):
+                failures.append((line_num, "extra_cf", line))
+                pending_markers = []
                 continue
-            
-            # Step 2: CF verification passed, verify all collected DF markers
-            for df_line_num, df_marker_str, df_value in pending_df_markers:
-                if not is_value_in_ranges(df_value, df_ranges):
-                    df_failed.append((df_line_num, df_marker_str, df_value, line_num, line))
-            
-            # Clear pending list, prepare for next CF data line
-            pending_df_markers = []
-            
-        elif is_df_marker_line(line):
-            # This is a DF marker line, add to pending list
-            df_value = parse_df_marker(line)
-            if df_value is not None:
-                pending_df_markers.append((line_num, line, df_value))
-    
-    # Report results
-    success = True
-    
-    if cf_failed:
-        print(f"\n[FAILED] CF verification failed! {len(cf_failed)} line(s) not found in database-CF:\n")
-        for line_num, line in cf_failed[:10]:
-            print(f"  Line {line_num}: {line}")
-        if len(cf_failed) > 10:
-            print(f"  ... and {len(cf_failed) - 10} more line(s)")
-        success = False
-    else:
-        print(f"\n[SUCCESS] CF verification passed!")
-    
-    if df_failed:
-        print(f"\n[FAILED] DF verification failed! {len(df_failed)} marker(s) not within valid ranges:\n")
-        for df_line_num, df_marker_str, df_value, cf_line_num, cf_line in df_failed[:10]:
-            print(f"  Line {df_line_num} {df_marker_str} (value={df_value:#x})")
-            print(f"    Associated with CF line {cf_line_num}: {cf_line}")
-        if len(df_failed) > 10:
-            print(f"  ... and {len(df_failed) - 10} more marker(s)")
-        success = False
-    else:
-        print(f"[SUCCESS] DF verification passed!")
-    
-    if success:
-        print(f"\n" + "="*60)
-        print("[SUCCESS] DF Mode Verification Completely Passed!")
-        print("="*60)
-    else:
-        print(f"\n" + "="*60)
-        print("[FAILED] DF Mode Verification Failed!")
-        print("="*60)
-    
-    return success
+
+            expected_cf = cf_list[cf_index]
+            if token != expected_cf:
+                failures.append((line_num, "cf_mismatch", line, expected_cf))
+                pending_markers = []
+                continue
+
+            path_index = cf_index
+            if path_index >= len(df_paths):
+                failures.append((line_num, "missing_path", line, path_index + 1))
+                pending_markers = []
+                cf_index += 1
+                continue
+
+            ranges = df_paths[path_index]
+            marker_count = len(pending_markers)
+            range_count = len(ranges)
+
+            for idx, (marker_line, marker_token) in enumerate(pending_markers):
+                if idx < range_count:
+                    min_r, max_r = ranges[idx]
+                    value = parse_hex_value(marker_token)
+                    if not (min_r <= value <= max_r):
+                        failures.append((
+                            marker_line,
+                            "df_out",
+                            marker_token,
+                            (min_r, max_r),
+                            path_index + 1,
+                            line_num,
+                            line,
+                        ))
+
+            if marker_count > range_count:
+                failures.append((
+                    line_num,
+                    "df_marker_count_mismatch",
+                    path_index + 1,
+                    marker_count,
+                    range_count,
+                    line,
+                ))
+
+            if range_count > marker_count:
+                failures.append((
+                    line_num,
+                    "df_missing_marker",
+                    path_index + 1,
+                    marker_count,
+                    range_count,
+                    line,
+                ))
+
+            pending_markers = []
+            cf_index += 1
+            continue
+
+        failures.append((line_num, "unknown_token", line))
+
+    if pending_markers:
+        failures.append((pending_markers[0][0], "dangling_markers", len(pending_markers)))
+
+    if cf_index != len(cf_list):
+        failures.append((0, "missing_cf", cf_index, len(cf_list)))
+
+    if failures:
+        print(f"\n[FAILED] CF+DF verification failed! {len(failures)} issue(s):\n")
+        for entry in failures[:30]:
+            kind = entry[1]
+            if kind == "invalid_runtime":
+                print(f"  Line {entry[0]} invalid runtime format: {entry[2]}")
+            elif kind == "extra_cf":
+                print(f"  Line {entry[0]} extra CF event not in CF data: {entry[2]}")
+            elif kind == "cf_mismatch":
+                print(f"  Line {entry[0]} CF mismatch: {entry[2]}")
+                print(f"    Expected CF: {entry[3]}")
+            elif kind == "missing_path":
+                print(f"  Line {entry[0]} missing DF path for CF index {entry[3]}: {entry[2]}")
+            elif kind == "df_out":
+                min_r, max_r = entry[3]
+                print(
+                    f"  Line {entry[0]} DF marker {entry[2]} not in range {min_r}--{max_r}"
+                    f" for Path {entry[4]}"
+                )
+                print(f"    Associated with CF line {entry[5]}: {entry[6]}")
+            elif kind == "df_no_range":
+                print(
+                    f"  Line {entry[0]} DF marker {entry[2]} has no corresponding range for Path {entry[3]}"
+                )
+                print(f"    Associated with CF line {entry[4]}: {entry[5]}")
+            elif kind == "df_missing_marker":
+                print(
+                    f"  Line {entry[0]} missing DF markers for Path {entry[2]}"
+                    f" (markers={entry[3]}, ranges={entry[4]})"
+                )
+                print(f"    Associated with CF line {entry[5]}")
+            elif kind == "df_marker_count_mismatch":
+                print(
+                    f"  Line {entry[0]} DF marker count exceeds ranges for Path {entry[2]}"
+                    f" (markers={entry[3]}, ranges={entry[4]})"
+                )
+                print(f"    Associated with CF line {entry[5]}")
+            elif kind == "dangling_markers":
+                print(f"  Line {entry[0]} has {entry[2]} DF markers with no following CF event")
+            elif kind == "missing_cf":
+                print(f"  Missing CF events in runtime (matched={entry[2]}, expected={entry[3]})")
+            else:
+                print(f"  Line {entry[0]} unknown runtime token: {entry[2]}")
+
+        if len(failures) > 30:
+            print(f"  ... and {len(failures) - 30} more issue(s)")
+        return False
+
+    print("\n[SUCCESS] CF+DF verification passed!")
+    return True
 
 
 def main():
-    """Main function"""
-    # Default mode is CF+TOCTOU
-    if len(sys.argv) == 1:
+    """Main function."""
+    if len(sys.argv) == 1 or sys.argv[1] in {"-h", "--help"}:
         print("Usage:")
-        print("  Default (CF+TOCTOU): python verify_attestation.py <runtime-CF> <database-CF>")
-        print("  CF+TOCTOU mode:      python verify_attestation.py cf <runtime-CF> <database-CF>")
-        print("  DF mode:             python verify_attestation.py df <runtime-DF> <database-CF> <database-DF>")
-        print("\nExamples:")
-        print("  python verify_attestation.py runtime-CF.txt database-CF.txt")
-        print("  python verify_attestation.py cf runtime-CF.txt database-CF.txt")
-        print("  python verify_attestation.py df runtime-DF.txt database-CF.txt database-DF.txt")
-        sys.exit(1)
-    
-    # Check if first argument is a mode or a file
-    first_arg = sys.argv[1].lower()
-    
-    if first_arg in ['cf', 'df']:
-        # Mode explicitly specified
-        mode = first_arg
-        
-        if mode == 'cf':
-            if len(sys.argv) != 4:
-                print("[ERROR] CF mode requires 3 arguments: python verify_attestation.py cf <runtime-CF> <database-CF>")
-                sys.exit(1)
-            
-            runtime_cf = sys.argv[2]
-            database_cf = sys.argv[3]
-            
-            success = verify_cf_toctou_mode(runtime_cf, database_cf)
-            sys.exit(0 if success else 1)
-        
-        elif mode == 'df':
-            if len(sys.argv) != 5:
-                print("[ERROR] DF mode requires 4 arguments: python verify_attestation.py df <runtime-DF> <database-CF> <database-DF>")
-                sys.exit(1)
-            
-            runtime_df = sys.argv[2]
-            database_cf = sys.argv[3]
-            database_df = sys.argv[4]
-            
-            success = verify_df_mode(runtime_df, database_cf, database_df)
-            sys.exit(0 if success else 1)
-    else:
-        # No mode specified, default to CF+TOCTOU
-        if len(sys.argv) != 3:
-            print("[ERROR] Default CF+TOCTOU mode requires 2 arguments: python verify_attestation.py <runtime-CF> <database-CF>")
-            print("Or specify mode explicitly: python verify_attestation.py cf/df ...")
+        print("  CF+TOCTOU mode: python database_verify.py cf <runtime_data> <CF_data> <TOCTOU_data>")
+        print("  CF+DF mode:     python database_verify.py df <runtime> <CF> <DF>")
+        sys.exit(0 if len(sys.argv) > 1 else 1)
+
+    mode = sys.argv[1].lower()
+    if mode == "cf":
+        if len(sys.argv) != 5:
+            print("[ERROR] CF+TOCTOU mode requires 4 arguments: python database_verify.py cf <runtime_data> <CF_data> <TOCTOU_data>")
             sys.exit(1)
-        
-        runtime_cf = sys.argv[1]
-        database_cf = sys.argv[2]
-        
-        success = verify_cf_toctou_mode(runtime_cf, database_cf)
+        runtime_path = sys.argv[2]
+        cf_path = sys.argv[3]
+        toctou_path = sys.argv[4]
+        success = verify_cf_toctou_mode(runtime_path, cf_path, toctou_path)
         sys.exit(0 if success else 1)
+
+    if mode == "df":
+        if len(sys.argv) != 5:
+            print("[ERROR] CF+DF mode requires 4 arguments: python database_verify.py df <runtime> <CF> <DF>")
+            sys.exit(1)
+        runtime_path = sys.argv[2]
+        cf_path = sys.argv[3]
+        df_path = sys.argv[4]
+        success = verify_df_mode(runtime_path, cf_path, df_path)
+        sys.exit(0 if success else 1)
+
+    print("[ERROR] Unknown mode. Use 'cf' or 'df'.")
+    sys.exit(1)
 
 
 if __name__ == "__main__":
