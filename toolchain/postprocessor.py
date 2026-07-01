@@ -126,7 +126,7 @@ popToPc = re.compile("POPM(\.(W|A))?\s+((#(0x)?2h?\s*,\s*(SP|R1))|(#(0x)?1h?\s*,
 
 
 ### RESERVED REGISTER CONTROL ###
-reservedReg = re.compile("^(?!(\s*;)).*R(4|5|6|8)",re.I) #use of reserved register outside of comments
+reservedReg = re.compile("^(?!(\s*;)).*R(4|5|6)",re.I) #use of reserved register outside of comments
 
 
 curlyBracket = re.compile("{\s?",re.I)
