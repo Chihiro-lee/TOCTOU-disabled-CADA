@@ -69,29 +69,12 @@ Following, there is a list of instructions and broad guidelines on how to compil
         - `symbolic_exe/write_count_symbolic.py`: write count symbolic execution script to collect offline write count measurements. please use `python3 write_count_symbolic.py your_binary` to generate the outcome. More details can see in `write_count_symbolic.py` file.
         
 - `App/`: folder containing all of the test applications used during the evaluation of the proposed TOCTOU-disabled implementation.
-    - `ACFA_modified_app/`: instrumented and correctly working
-    - `attack_app/`: instrumented and correctly working
-    - `Bitcount/`: instrumented and correctly working
-    - `CopyDMA/`: instrumented and correctly working. The Application copies the content of the flash into RAM with memcpy and with the DMA. In both cases, it checks whether the result is correct. The DMA triggers an interrupt when finished.
-    - `DIALED_modified_app/`: instrumented and correctly working
-    - `F5529-serial/`: instrumented and correctly working
-    - `OAT_modified_app/`: instrumented and correctly working
-    - `SerialMSP/`: instrumented and correctly working
-    - `SpecCFA/`: instrumented and correctly working
-    - `XorCypher/`: instrumented and correctly working
-    - `Verify&Revive_modified/`: instrumented and correctly working
-    - `TiBenchmark/`: folder containing all of the benchmark applications used by TI and during the evalution of the proposed TOCTOU-disabled implementation.
-        - `matrixMultiplication/`: instrumented and correctly working.
-        - `floatingPointMath/`: instrumented and correctly working.
-        - `firFilter/`: instrumented and correctly working.
-        - `8bitSwitchCase/`: instrumented and correctly working.
-        - `16bitSwitchCase/`: instrumented and correctly working.
-        - `8bitMath/`: instrumented and correctly working.
-        - `16bitMath/`: instrumented and correctly working.
-        - `32bitMath/`: instrumented and correctly working.
-        - `8bit2dimMatrix/`: instrumented and correctly working.
-        - `16bit2dimMatrix/`: instrumented and correctly working.
-        - `DMA/`: instrumented and correctly working.
+    - `S1/`: instrumented and correctly working
+    - `S2/`: instrumented and correctly working
+    - `S3/`: instrumented and correctly working
+    - `S4/`: instrumented and correctly working. The Application copies the content of the flash into RAM with memcpy and with the DMA. In both cases, it checks whether the result is correct. The DMA triggers an interrupt when finished.
+    - `S5/`: instrumented and correctly working
+    
 - `clang_app/`: folder containing all of the test applications' `.bc` form used during the `Collecting input set of untrusted application` step.
 - `frama-c/`: folder containing files used during the verification for the code of TOCTOU-disabled implementation.
 - `nuXmv/`: folder containing files used during the verification for the security property of TOCTOU-disabled implementation.
