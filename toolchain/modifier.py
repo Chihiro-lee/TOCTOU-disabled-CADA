@@ -288,6 +288,7 @@ def replaceRead(match, mov_variant="MOV"):
         "\t$mov_variant $source, $src_pointer\n"
         "\tMOV $dest, $dst_pointer\n"
         "\tCALL #$read_mov_fun\n"
+        "\t$old\n"
         "; End safe sequence\n\n"
     )
     if(virtualLabel == 1):
